@@ -1,7 +1,7 @@
 # MobilityTicketing: Lecture 9 starter
 
 Investigate two passengers trying to book the last seat. The
-[lecture page](https://moodle.easv.dk/course/section.php?id=421586)
+[lecture page](https://moodle.easv.dk/mod/page/view.php?id=397569)
 contains the tasks. This README provides setup, the function contract and commands.
 
 You need Docker with Compose. Clone or download this repository and run shell commands from
@@ -30,12 +30,32 @@ The image is PostgreSQL 17.
 `sql/book.sql`. It leaves your edited files in place. End both sessions'
 transactions before resetting. Save experiment output first.
 
+## Lab tasks
+
+Complete all eight tasks on Moodle. Use [the experiment examples](docs/experiments.md)
+for session commands, SQL fragments and saving variants.
+
+| Task | Work to keep |
+| --- | --- |
+| 1. Reproduce the double booking | Original sequence and increment-with-CHECK experiment |
+| 2. Use a conditional update | Capacity condition, returned rows, commit and rollback runs |
+| 3. Compare explicit locks | Row, table and advisory versions; different trips; deadlock |
+| 4. Detect a stale read | Optimistic count comparison, failed attempt and fresh retry |
+| 5. Compare isolation levels | Repeatable Read and Serializable runs, SQLSTATE and whole-transaction retry |
+| 6. Handle repeated requests | Same ID concurrently, changed details, A commits and A rolls back |
+| 7. Ask AI to review your implementation | Prompt, response, predicted result, actual test and decision |
+| 8. Compare the results | Every approach, its limitations and your choice for quiet and busy trips |
+
+Do not select just one approach. Keep the unsuccessful experiments too.
+
 ## Your files
 
 | File | Use |
 | --- | --- |
 | `sql/book.sql` | Implement the booking function. It initially raises an error. |
-| `docs/evidence.md` | Keep the results, your decision and AI review. |
+| `docs/evidence.md` | Fill in the run log, comparison and required AI review. |
+| `docs/experiments.md` | Follow session examples and adapt the SQL fragments. |
+| `sql/variants/` | Save your separate implementations here; see its README. |
 
 Keep the supplied schema, constraints and unsafe scripts unchanged. The
 `reserved_seats` column represents the same reservations as the booking rows:
@@ -60,7 +80,8 @@ passenger or trip must raise an error and preserve the original booking.
 Concurrent copies of the same request must leave one booking and one reservation.
 
 Only successful bookings are stored. A rejected attempt does not claim its
-request ID permanently. Use Read Committed for the corrected-function experiments.
+request ID permanently. Use Read Committed for tasks 2 to 4 and 6. Set the isolation level explicitly
+in each session for task 5.
 The function cannot commit; the caller chooses `COMMIT` or `ROLLBACK`.
 
 ## Open two sessions
@@ -142,7 +163,10 @@ available seats, and rollback after a successful call. Its temporary fixture
 changes are rolled back, preserving your experiment data. Close unfinished
 transactions first; a five-second lock timeout catches sessions still holding locks.
 
-These are single-session checks. Use the schedules below to check concurrency.
+These are single-session checks for the final function. Intermediate variants
+may not handle repeated requests yet. Use the schedules below and the experiment
+examples to check concurrency. For an optimistic stale-read experiment, use
+separate SQL statements so you can pause between reading and writing.
 
 ## Competing bookings
 
@@ -187,7 +211,7 @@ From either session, repeat the same `SELECT` once more. Then try the same reque
 ID with `passenger-B` or `T-OTHER`. Those changed requests must be rejected without
 altering the original booking.
 
-## Repeatable Read comparison
+## Repeatable Read and Serializable comparison
 
 Reset and repeat the **unsafe** schedule, changing both `BEGIN` commands to:
 
@@ -202,6 +226,11 @@ inspect: only A's booking should exist.
 In B, start a new transaction and rerun `unsafe-read.sql`. The new read should
 find the trip full. Stop the attempt without booking and roll back. Retrying the
 whole operation includes making that availability decision again.
+
+Repeat from reset data with `BEGIN ISOLATION LEVEL SERIALIZABLE;` in both
+sessions. Keep both reads before A's write. Save the actual error and show a
+fresh transaction making the availability decision again. See task 5 for the
+comparison and retry questions.
 
 This schedule demonstrates a conflict on one trip row. It does not establish that
 Repeatable Read prevents every concurrency anomaly.
